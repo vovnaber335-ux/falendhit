@@ -1,0 +1,1037 @@
+--[[
+    Geliştirilmiş Hitbox Genişletme Scripti - Murder2 Sekmesi Eklendi
+    Fallend tarafından geliştirilmiştir
+    GUI özellikleri:
+    - Insert tuşuyla GUI görünür/gizlenir
+    - N tuşuyla hitbox'ları açıp kapatma
+    - Hitbox boyutunu ayarlama slider'ı (5-2000 arası)
+    - Hitbox rengini seçme
+    - Hitbox opaklık ayarı
+    - Murder2 sekmesi eklendi
+    - Gelişmiş ESP sistemi
+    - Sürekli hitbox güncelleme
+    - Hitbox içinde hasar alma özelliği
+    - GUI tüm ekranların önünde ve mouse etkileşimi sorunsuz
+]]
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+-- Ayarlar
+getgenv().HBE = {
+    Enabled = true,
+    Size = 15,
+    Color = Color3.fromRGB(255, 0, 0),
+    Transparency = 0.8,
+    CoinCollect = false,
+    ShowKiller = false
+}
+
+-- ESP için değişkenler
+local espConnections = {}
+local killerESP = {}
+local espFolders = {}
+
+-- Hitbox için değişkenler
+local hitboxConnections = {}
+local hitboxParts = {}
+local lastHitboxUpdate = 0
+
+-- GUI Oluşturma
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HitboxGUI"
+screenGui.DisplayOrder = 10
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 350, 0, 350)
+mainFrame.Position = UDim2.new(0.5, -175, 0.5, -175)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.Parent = mainFrame
+
+local titleBarCorner = Instance.new("UICorner")
+titleBarCorner.CornerRadius = UDim.new(0, 8)
+titleBarCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Hitbox Genişletme - Fallend"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = titleBar
+
+-- Kapat Butonu (X)
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0.5, -15)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 16
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeButton
+
+-- Sekme Butonları
+local tabButtonsFrame = Instance.new("Frame")
+tabButtonsFrame.Size = UDim2.new(1, 0, 0, 35)
+tabButtonsFrame.Position = UDim2.new(0, 0, 0, 40)
+tabButtonsFrame.BackgroundTransparency = 1
+tabButtonsFrame.Parent = mainFrame
+
+local hitboxTab = Instance.new("TextButton")
+hitboxTab.Size = UDim2.new(0.5, 0, 1, 0)
+hitboxTab.Position = UDim2.new(0, 0, 0, 0)
+hitboxTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+hitboxTab.Text = "Hitbox"
+hitboxTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+hitboxTab.TextSize = 14
+hitboxTab.Font = Enum.Font.GothamBold
+hitboxTab.Parent = tabButtonsFrame
+
+local murderTab = Instance.new("TextButton")
+murderTab.Size = UDim2.new(0.5, 0, 1, 0)
+murderTab.Position = UDim2.new(0.5, 0, 0, 0)
+murderTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+murderTab.Text = "Murder2"
+murderTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+murderTab.TextSize = 14
+murderTab.Font = Enum.Font.GothamBold
+murderTab.Parent = tabButtonsFrame
+
+-- İçerik Alanları
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, 0, 1, -75)
+contentFrame.Position = UDim2.new(0, 0, 0, 75)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+-- Hitbox Sekmesi İçeriği
+local hitboxContent = Instance.new("Frame")
+hitboxContent.Size = UDim2.new(1, 0, 1, 0)
+hitboxContent.Position = UDim2.new(0, 0, 0, 0)
+hitboxContent.BackgroundTransparency = 1
+hitboxContent.Visible = true
+hitboxContent.Parent = contentFrame
+
+-- Murder2 Sekmesi İçeriği
+local murderContent = Instance.new("Frame")
+murderContent.Size = UDim2.new(1, 0, 1, 0)
+murderContent.Position = UDim2.new(0, 0, 0, 0)
+murderContent.BackgroundTransparency = 1
+murderContent.Visible = false
+murderContent.Parent = contentFrame
+
+-- HITBOX SEKMESİ İÇERİĞİ --
+local checkboxFrame = Instance.new("Frame")
+checkboxFrame.Size = UDim2.new(1, -20, 0, 30)
+checkboxFrame.Position = UDim2.new(0, 10, 0, 10)
+checkboxFrame.BackgroundTransparency = 1
+checkboxFrame.Parent = hitboxContent
+
+local checkbox = Instance.new("TextButton")
+checkbox.Size = UDim2.new(0, 20, 0, 20)
+checkbox.Position = UDim2.new(0, 0, 0, 5)
+checkbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+checkbox.Text = ""
+checkbox.AutoButtonColor = false
+checkbox.Parent = checkboxFrame
+
+local checkboxCorner = Instance.new("UICorner")
+checkboxCorner.CornerRadius = UDim.new(0, 4)
+checkboxCorner.Parent = checkbox
+
+local checkboxLabel = Instance.new("TextLabel")
+checkboxLabel.Size = UDim2.new(1, -30, 1, 0)
+checkboxLabel.Position = UDim2.new(0, 25, 0, 0)
+checkboxLabel.BackgroundTransparency = 1
+checkboxLabel.Text = "Hitbox'ları Etkinleştir (N Tuşu) - Fallend"
+checkboxLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+checkboxLabel.TextSize = 14
+checkboxLabel.TextXAlignment = Enum.TextXAlignment.Left
+checkboxLabel.Font = Enum.Font.Gotham
+checkboxLabel.Parent = checkboxFrame
+
+-- Boyut Ayarı (5-2000)
+local sizeFrame = Instance.new("Frame")
+sizeFrame.Size = UDim2.new(1, -20, 0, 60)
+sizeFrame.Position = UDim2.new(0, 10, 0, 50)
+sizeFrame.BackgroundTransparency = 1
+sizeFrame.Parent = hitboxContent
+
+local sizeLabel = Instance.new("TextLabel")
+sizeLabel.Size = UDim2.new(1, 0, 0, 20)
+sizeLabel.Position = UDim2.new(0, 0, 0, 0)
+sizeLabel.BackgroundTransparency = 1
+sizeLabel.Text = "Hitbox Boyutu: " .. getgenv().HBE.Size
+sizeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+sizeLabel.TextSize = 14
+sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+sizeLabel.Font = Enum.Font.Gotham
+sizeLabel.Parent = sizeFrame
+
+local sizeSlider = Instance.new("Frame")
+sizeSlider.Size = UDim2.new(1, 0, 0, 20)
+sizeSlider.Position = UDim2.new(0, 0, 0, 25)
+sizeSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+sizeSlider.BorderSizePixel = 0
+sizeSlider.ClipsDescendants = true
+sizeSlider.Parent = sizeFrame
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 4)
+sliderCorner.Parent = sizeSlider
+
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new((getgenv().HBE.Size - 5) / 1995, 0, 1, 0) -- 5-2000 arası
+sliderFill.Position = UDim2.new(0, 0, 0, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = sizeSlider
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 4)
+fillCorner.Parent = sliderFill
+
+local sliderButton = Instance.new("TextButton")
+sliderButton.Size = UDim2.new(1, 0, 1, 0)
+sliderButton.Position = UDim2.new(0, 0, 0, 0)
+sliderButton.BackgroundTransparency = 1
+sliderButton.Text = ""
+sliderButton.AutoButtonColor = false
+sliderButton.Parent = sizeSlider
+
+local sizeValue = Instance.new("TextLabel")
+sizeValue.Size = UDim2.new(0, 40, 0, 20)
+sizeValue.Position = UDim2.new(1, -40, 0, 0)
+sizeValue.BackgroundTransparency = 1
+sizeValue.Text = tostring(getgenv().HBE.Size)
+sizeValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+sizeValue.TextSize = 14
+sizeValue.TextXAlignment = Enum.TextXAlignment.Right
+sizeValue.Font = Enum.Font.Gotham
+sizeValue.Parent = sizeLabel
+
+-- Opaklık Ayarı
+local transparencyFrame = Instance.new("Frame")
+transparencyFrame.Size = UDim2.new(1, -20, 0, 60)
+transparencyFrame.Position = UDim2.new(0, 10, 0, 120)
+transparencyFrame.BackgroundTransparency = 1
+transparencyFrame.Parent = hitboxContent
+
+local transparencyLabel = Instance.new("TextLabel")
+transparencyLabel.Size = UDim2.new(1, 0, 0, 20)
+transparencyLabel.Position = UDim2.new(0, 0, 0, 0)
+transparencyLabel.BackgroundTransparency = 1
+transparencyLabel.Text = "Opaklık: " .. math.floor((1 - getgenv().HBE.Transparency) * 100) .. "%"
+transparencyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+transparencyLabel.TextSize = 14
+transparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
+transparencyLabel.Font = Enum.Font.Gotham
+transparencyLabel.Parent = transparencyFrame
+
+local transparencySlider = Instance.new("Frame")
+transparencySlider.Size = UDim2.new(1, 0, 0, 20)
+transparencySlider.Position = UDim2.new(0, 0, 0, 25)
+transparencySlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+transparencySlider.BorderSizePixel = 0
+transparencySlider.ClipsDescendants = true
+transparencySlider.Parent = transparencyFrame
+
+local transparencySliderCorner = Instance.new("UICorner")
+transparencySliderCorner.CornerRadius = UDim.new(0, 4)
+transparencySliderCorner.Parent = transparencySlider
+
+local transparencyFill = Instance.new("Frame")
+transparencyFill.Size = UDim2.new(1 - getgenv().HBE.Transparency, 0, 1, 0)
+transparencyFill.Position = UDim2.new(0, 0, 0, 0)
+transparencyFill.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+transparencyFill.BorderSizePixel = 0
+transparencyFill.Parent = transparencySlider
+
+local transparencyFillCorner = Instance.new("UICorner")
+transparencyFillCorner.CornerRadius = UDim.new(0, 4)
+transparencyFillCorner.Parent = transparencyFill
+
+local transparencyButton = Instance.new("TextButton")
+transparencyButton.Size = UDim2.new(1, 0, 1, 0)
+transparencyButton.Position = UDim2.new(0, 0, 0, 0)
+transparencyButton.BackgroundTransparency = 1
+transparencyButton.Text = ""
+transparencyButton.AutoButtonColor = false
+transparencyButton.Parent = transparencySlider
+
+-- Renk Seçici
+local colorFrame = Instance.new("Frame")
+colorFrame.Size = UDim2.new(1, -20, 0, 50)
+colorFrame.Position = UDim2.new(0, 10, 0, 190)
+colorFrame.BackgroundTransparency = 1
+colorFrame.Parent = hitboxContent
+
+local colorLabel = Instance.new("TextLabel")
+colorLabel.Size = UDim2.new(1, 0, 0, 20)
+colorLabel.Position = UDim2.new(0, 0, 0, 0)
+colorLabel.BackgroundTransparency = 1
+colorLabel.Text = "Hitbox Rengi - Fallend"
+colorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+colorLabel.TextSize = 14
+colorLabel.TextXAlignment = Enum.TextXAlignment.Left
+colorLabel.Font = Enum.Font.Gotham
+colorLabel.Parent = colorFrame
+
+local colorBox = Instance.new("TextButton")
+colorBox.Size = UDim2.new(0, 80, 0, 25)
+colorBox.Position = UDim2.new(0, 0, 0, 25)
+colorBox.BackgroundColor3 = getgenv().HBE.Color
+colorBox.Text = ""
+colorBox.AutoButtonColor = false
+colorBox.Parent = colorFrame
+
+local colorCorner = Instance.new("UICorner")
+colorCorner.CornerRadius = UDim.new(0, 4)
+colorCorner.Parent = colorBox
+
+-- MURDER2 SEKMESİ İÇERİĞİ --
+local coinFrame = Instance.new("Frame")
+coinFrame.Size = UDim2.new(1, -20, 0, 30)
+coinFrame.Position = UDim2.new(0, 10, 0, 20)
+coinFrame.BackgroundTransparency = 1
+coinFrame.Parent = murderContent
+
+local coinCheckbox = Instance.new("TextButton")
+coinCheckbox.Size = UDim2.new(0, 20, 0, 20)
+coinCheckbox.Position = UDim2.new(0, 0, 0, 5)
+coinCheckbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+coinCheckbox.Text = ""
+coinCheckbox.AutoButtonColor = false
+coinCheckbox.Parent = coinFrame
+
+local coinCheckboxCorner = Instance.new("UICorner")
+coinCheckboxCorner.CornerRadius = UDim.new(0, 4)
+coinCheckboxCorner.Parent = coinCheckbox
+
+local coinLabel = Instance.new("TextLabel")
+coinLabel.Size = UDim2.new(1, -30, 1, 0)
+coinLabel.Position = UDim2.new(0, 25, 0, 0)
+coinLabel.BackgroundTransparency = 1
+coinLabel.Text = "Coin Topla - Fallend"
+coinLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+coinLabel.TextSize = 14
+coinLabel.TextXAlignment = Enum.TextXAlignment.Left
+coinLabel.Font = Enum.Font.Gotham
+coinLabel.Parent = coinFrame
+
+local killerFrame = Instance.new("Frame")
+killerFrame.Size = UDim2.new(1, -20, 0, 30)
+killerFrame.Position = UDim2.new(0, 10, 0, 60)
+killerFrame.BackgroundTransparency = 1
+killerFrame.Parent = murderContent
+
+local killerCheckbox = Instance.new("TextButton")
+killerCheckbox.Size = UDim2.new(0, 20, 0, 20)
+killerCheckbox.Position = UDim2.new(0, 0, 0, 5)
+killerCheckbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+killerCheckbox.Text = ""
+killerCheckbox.AutoButtonColor = false
+killerCheckbox.Parent = killerFrame
+
+local killerCheckboxCorner = Instance.new("UICorner")
+killerCheckboxCorner.CornerRadius = UDim.new(0, 4)
+killerCheckboxCorner.Parent = killerCheckbox
+
+local killerLabel = Instance.new("TextLabel")
+killerLabel.Size = UDim2.new(1, -30, 1, 0)
+killerLabel.Position = UDim2.new(0, 25, 0, 0)
+killerLabel.BackgroundTransparency = 1
+killerLabel.Text = "Katil kim aq - Fallend"
+killerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killerLabel.TextSize = 14
+killerLabel.TextXAlignment = Enum.TextXAlignment.Left
+killerLabel.Font = Enum.Font.Gotham
+killerLabel.Parent = killerFrame
+
+local coinDesc = Instance.new("TextLabel")
+coinDesc.Size = UDim2.new(1, -20, 0, 40)
+coinDesc.Position = UDim2.new(0, 10, 0, 100)
+coinDesc.BackgroundTransparency = 1
+coinDesc.Text = "Coin Topla: İşaretlendiğinde coin otomatik olarak toplanır - Fallend"
+coinDesc.TextColor3 = Color3.fromRGB(200, 200, 200)
+coinDesc.TextSize = 12
+coinDesc.TextXAlignment = Enum.TextXAlignment.Left
+coinDesc.TextYAlignment = Enum.TextYAlignment.Top
+coinDesc.Font = Enum.Font.Gotham
+coinDesc.Parent = murderContent
+
+local killerDesc = Instance.new("TextLabel")
+killerDesc.Size = UDim2.new(1, -20, 0, 60)
+killerDesc.Position = UDim2.new(0, 10, 0, 150)
+killerDesc.BackgroundTransparency = 1
+killerDesc.Text = "Katil kim aq: İşaretlendiğinde envanterinde bıçak olan oyuncular ESP ile gösterilir - Fallend"
+killerDesc.TextColor3 = Color3.fromRGB(200, 200, 200)
+killerDesc.TextSize = 12
+killerDesc.TextXAlignment = Enum.TextXAlignment.Left
+killerDesc.TextYAlignment = Enum.TextYAlignment.Top
+killerDesc.Font = Enum.Font.Gotham
+killerDesc.Parent = murderContent
+
+-- Menüyü Tamamen Kapat Butonu
+local destroyButton = Instance.new("TextButton")
+destroyButton.Size = UDim2.new(0, 140, 0, 35)
+destroyButton.Position = UDim2.new(0.5, -70, 1, -45)
+destroyButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+destroyButton.Text = "Menüyü Tamamen Kapat"
+destroyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+destroyButton.TextSize = 14
+destroyButton.Font = Enum.Font.GothamBold
+destroyButton.Parent = contentFrame
+
+local destroyCorner = Instance.new("UICorner")
+destroyCorner.CornerRadius = UDim.new(0, 4)
+destroyCorner.Parent = destroyButton
+
+-- GUI İşlevleri
+local function updateCheckbox()
+    if getgenv().HBE.Enabled then
+        checkbox.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        if not checkbox:FindFirstChild("Check") then
+            local check = Instance.new("ImageLabel")
+            check.Name = "Check"
+            check.Size = UDim2.new(1, -4, 1, -4)
+            check.Position = UDim2.new(0, 2, 0, 2)
+            check.BackgroundTransparency = 1
+            check.Image = "rbxassetid://7072716625"
+            check.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            check.Parent = checkbox
+        end
+    else
+        checkbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        if checkbox:FindFirstChild("Check") then
+            checkbox.Check:Destroy()
+        end
+    end
+end
+
+local function updateCoinCheckbox()
+    if getgenv().HBE.CoinCollect then
+        coinCheckbox.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        if not coinCheckbox:FindFirstChild("Check") then
+            local check = Instance.new("ImageLabel")
+            check.Name = "Check"
+            check.Size = UDim2.new(1, -4, 1, -4)
+            check.Position = UDim2.new(0, 2, 0, 2)
+            check.BackgroundTransparency = 1
+            check.Image = "rbxassetid://7072716625"
+            check.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            check.Parent = coinCheckbox
+        end
+    else
+        coinCheckbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        if coinCheckbox:FindFirstChild("Check") then
+            coinCheckbox.Check:Destroy()
+        end
+    end
+end
+
+local function updateKillerCheckbox()
+    if getgenv().HBE.ShowKiller then
+        killerCheckbox.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        if not killerCheckbox:FindFirstChild("Check") then
+            local check = Instance.new("ImageLabel")
+            check.Name = "Check"
+            check.Size = UDim2.new(1, -4, 1, -4)
+            check.Position = UDim2.new(0, 2, 0, 2)
+            check.BackgroundTransparency = 1
+            check.Image = "rbxassetid://7072716625"
+            check.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            check.Parent = killerCheckbox
+        end
+    else
+        killerCheckbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        if killerCheckbox:FindFirstChild("Check") then
+            killerCheckbox.Check:Destroy()
+        end
+    end
+end
+
+local function updateSizeDisplay()
+    sizeLabel.Text = "Hitbox Boyutu: " .. getgenv().HBE.Size
+    sizeValue.Text = tostring(getgenv().HBE.Size)
+    sliderFill.Size = UDim2.new((getgenv().HBE.Size - 5) / 1995, 0, 1, 0) -- 5-2000 arası
+end
+
+local function updateTransparencyDisplay()
+    local percentage = math.floor((1 - getgenv().HBE.Transparency) * 100)
+    transparencyLabel.Text = "Opaklık: " .. percentage .. "%"
+    transparencyFill.Size = UDim2.new(1 - getgenv().HBE.Transparency, 0, 1, 0)
+end
+
+local function updateColorDisplay()
+    colorBox.BackgroundColor3 = getgenv().HBE.Color
+end
+
+local function switchToTab(tabName)
+    if tabName == "Hitbox" then
+        hitboxContent.Visible = true
+        murderContent.Visible = false
+        hitboxTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        murderTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        hitboxTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+        murderTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    elseif tabName == "Murder2" then
+        hitboxContent.Visible = false
+        murderContent.Visible = true
+        hitboxTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        murderTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        hitboxTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+        murderTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
+
+-- Olayları Bağlama
+checkbox.MouseButton1Click:Connect(function()
+    getgenv().HBE.Enabled = not getgenv().HBE.Enabled
+    updateCheckbox()
+    applyHitboxesToAllPlayers()
+end)
+
+coinCheckbox.MouseButton1Click:Connect(function()
+    getgenv().HBE.CoinCollect = not getgenv().HBE.CoinCollect
+    updateCoinCheckbox()
+end)
+
+killerCheckbox.MouseButton1Click:Connect(function()
+    getgenv().HBE.ShowKiller = not getgenv().HBE.ShowKiller
+    updateKillerCheckbox()
+    
+    if getgenv().HBE.ShowKiller then
+        findAndShowKiller()
+    else
+        clearKillerESP()
+    end
+end)
+
+hitboxTab.MouseButton1Click:Connect(function()
+    switchToTab("Hitbox")
+end)
+
+murderTab.MouseButton1Click:Connect(function()
+    switchToTab("Murder2")
+end)
+
+-- Slider işlevselliği
+local sizeSliderDragging = false
+local transparencySliderDragging = false
+
+sliderButton.MouseButton1Down:Connect(function()
+    sizeSliderDragging = true
+end)
+
+transparencyButton.MouseButton1Down:Connect(function()
+    transparencySliderDragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sizeSliderDragging = false
+        transparencySliderDragging = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if sizeSliderDragging then
+        local mouse = UserInputService:GetMouseLocation()
+        local sliderAbsolutePos = sizeSlider.AbsolutePosition
+        local sliderAbsoluteSize = sizeSlider.AbsoluteSize
+        
+        local x = (mouse.X - sliderAbsolutePos.X) / sliderAbsoluteSize.X
+        x = math.clamp(x, 0, 1)
+        
+        getgenv().HBE.Size = 5 + math.floor(x * 1995) -- 5-2000 arası
+        updateSizeDisplay()
+        
+        if getgenv().HBE.Enabled then
+            applyHitboxesToAllPlayers()
+        end
+    end
+    
+    if transparencySliderDragging then
+        local mouse = UserInputService:GetMouseLocation()
+        local sliderAbsolutePos = transparencySlider.AbsolutePosition
+        local sliderAbsoluteSize = transparencySlider.AbsoluteSize
+        
+        local x = (mouse.X - sliderAbsolutePos.X) / sliderAbsoluteSize.X
+        x = math.clamp(x, 0, 1)
+        
+        getgenv().HBE.Transparency = 1 - x
+        updateTransparencyDisplay()
+        
+        if getgenv().HBE.Enabled then
+            applyHitboxesToAllPlayers()
+        end
+    end
+    
+    if getgenv().HBE.CoinCollect then
+        collectCoin()
+    end
+end)
+
+colorBox.MouseButton1Click:Connect(function()
+    getgenv().HBE.Color = Color3.fromRGB(
+        math.random(50, 255),
+        math.random(50, 255), 
+        math.random(50, 255)
+    )
+    updateColorDisplay()
+    
+    if getgenv().HBE.Enabled then
+        applyHitboxesToAllPlayers()
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui.Enabled = not screenGui.Enabled
+end)
+
+destroyButton.MouseButton1Click:Connect(function()
+    getgenv().HBE.Enabled = false
+    getgenv().HBE.CoinCollect = false
+    getgenv().HBE.ShowKiller = false
+    applyHitboxesToAllPlayers()
+    clearKillerESP()
+    
+    screenGui:Destroy()
+    
+    pcall(function()
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        local old = mt.__index
+        mt.__index = function(Self, Key)
+            if tostring(Self) == "HumanoidRootPart" and tostring(Key) == "Size" then
+                return Vector3.new(2, 2, 1)
+            end
+            return old(Self, Key)
+        end
+        setreadonly(mt, true)
+    end)
+    
+    print("Fallend Hitbox menüsü kapatıldı ve tüm hitbox'lar sıfırlandı.")
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Insert then
+        screenGui.Enabled = not screenGui.Enabled
+    elseif input.KeyCode == Enum.KeyCode.N then
+        getgenv().HBE.Enabled = not getgenv().HBE.Enabled
+        updateCheckbox()
+        applyHitboxesToAllPlayers()
+    end
+end)
+
+updateCheckbox()
+updateCoinCheckbox()
+updateKillerCheckbox()
+updateSizeDisplay()
+updateTransparencyDisplay()
+updateColorDisplay()
+
+-- COIN TOPLAMA SİSTEMİ --
+local function collectCoin()
+    local coinContainer = workspace:FindFirstChild("BioLab")
+    if coinContainer then
+        coinContainer = coinContainer:FindFirstChild("CoinContainer")
+        if coinContainer then
+            local coins = coinContainer:GetChildren()
+            if #coins >= 32 then
+                local targetCoin = coins[32]
+                if targetCoin and targetCoin:IsA("Part") then
+                    local character = LocalPlayer.Character
+                    if character then
+                        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                        if humanoidRootPart then
+                            targetCoin.CFrame = humanoidRootPart.CFrame
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- GELİŞMİŞ ESP SİSTEMİ --
+local function createESP(player, isKiller)
+    if not player.Character then return end
+    
+    local character = player.Character
+    
+    -- ESP için folder oluştur
+    if not espFolders[player] then
+        espFolders[player] = Instance.new("Folder")
+        espFolders[player].Name = player.Name .. "_ESP"
+        espFolders[player].Parent = workspace
+    end
+    
+    -- Tüm vücut parçaları için ESP
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local espBox = Instance.new("BoxHandleAdornment")
+            espBox.Name = "KillerESP"
+            espBox.Adornee = part
+            espBox.AlwaysOnTop = true
+            espBox.ZIndex = 10
+            espBox.Size = part.Size + Vector3.new(0.1, 0.1, 0.1)
+            espBox.Transparency = 0.3
+            espBox.Color3 = isKiller and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+            espBox.Parent = espFolders[player]
+        end
+    end
+    
+    -- Billboard GUI (İsim ve durum)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Name = "KillerLabel"
+        billboardGui.Adornee = humanoidRootPart
+        billboardGui.Size = UDim2.new(0, 200, 0, 50)
+        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.MaxDistance = 500
+        billboardGui.Parent = espFolders[player]
+        
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 0.5
+        textLabel.BackgroundColor3 = isKiller and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+        textLabel.Text = player.Name .. (isKiller and " (KATİL)" or " (MASUM)") .. " - Fallend"
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextSize = 14
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Parent = billboardGui
+        
+        -- Mesafe ölçer
+        local distanceLabel = Instance.new("TextLabel")
+        distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+        distanceLabel.Position = UDim2.new(0, 0, 1, 0)
+        distanceLabel.BackgroundTransparency = 0.5
+        distanceLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        distanceLabel.Text = "Mesafe: Hesaplanıyor..."
+        distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        distanceLabel.TextSize = 12
+        distanceLabel.Font = Enum.Font.Gotham
+        distanceLabel.Parent = billboardGui
+        
+        -- Mesafe güncelleme
+        local distanceConnection
+        distanceConnection = RunService.Heartbeat:Connect(function()
+            if not character or not character.Parent then
+                distanceConnection:Disconnect()
+                return
+            end
+            
+            local localChar = LocalPlayer.Character
+            if localChar and localChar:FindFirstChild("HumanoidRootPart") then
+                local distance = (humanoidRootPart.Position - localChar.HumanoidRootPart.Position).Magnitude
+                distanceLabel.Text = "Mesafe: " .. math.floor(distance) .. "m"
+            end
+        end)
+        
+        killerESP[player] = {folder = espFolders[player], connection = distanceConnection}
+    end
+end
+
+local function removeESP(player)
+    if killerESP[player] then
+        if killerESP[player].connection then
+            killerESP[player].connection:Disconnect()
+        end
+        if killerESP[player].folder then
+            killerESP[player].folder:Destroy()
+        end
+        killerESP[player] = nil
+    end
+end
+
+local function clearKillerESP()
+    for player, espData in pairs(killerESP) do
+        removeESP(player)
+    end
+    killerESP = {}
+    espFolders = {}
+end
+
+local function checkPlayerForKnife(player)
+    -- Workspace'taki oyuncu karakterini kontrol et
+    local character = player.Character
+    if character then
+        -- Karakterin tüm çocuklarını kontrol et
+        for _, item in pairs(character:GetDescendants()) do
+            if item:IsA("Tool") then
+                local knifeNames = {"Knife", "KnifeServer", "KnifeLocal"}
+                for _, knifeName in pairs(knifeNames) do
+                    if string.find(item.Name:lower(), knifeName:lower()) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Backpack'i kontrol et
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                local knifeNames = {"Knife", "KnifeServer", "KnifeLocal"}
+                for _, knifeName in pairs(knifeNames) do
+                    if string.find(item.Name:lower(), knifeName:lower()) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+local function findAndShowKiller()
+    clearKillerESP()
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local isKiller = checkPlayerForKnife(player)
+            createESP(player, isKiller)
+            
+            -- Oyuncu karakteri değiştiğinde ESP'yi güncelle
+            local connection
+            connection = player.CharacterAdded:Connect(function(character)
+                wait(2) -- Karakterin tamamen yüklenmesini bekle
+                removeESP(player)
+                local isKillerNew = checkPlayerForKnife(player)
+                createESP(player, isKillerNew)
+            end)
+            
+            espConnections[player] = connection
+        end
+    end
+end
+
+-- GELİŞMİŞ HITBOX SİSTEMİ --
+local function getCharacter(player)
+    return workspace:FindFirstChild(player.Name)
+end
+
+local function createHitboxPart(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+    
+    -- Hitbox part'ı oluştur
+    local hitboxPart = Instance.new("Part")
+    hitboxPart.Name = "HitboxPart"
+    hitboxPart.Size = Vector3.new(getgenv().HBE.Size, getgenv().HBE.Size, getgenv().HBE.Size)
+    hitboxPart.Color = getgenv().HBE.Color
+    hitboxPart.Material = Enum.Material.Neon
+    hitboxPart.Transparency = getgenv().HBE.Transparency
+    hitboxPart.CanCollide = false
+    hitboxPart.Anchored = false
+    hitboxPart.CastShadow = false
+    
+    -- Hitbox'ı HumanoidRootPart'a bağla
+    local weld = Instance.new("Weld")
+    weld.Part0 = humanoidRootPart
+    weld.Part1 = hitboxPart
+    weld.C0 = CFrame.new()
+    weld.Parent = hitboxPart
+    
+    hitboxPart.Parent = character
+    
+    -- Işık efekti
+    local light = Instance.new("PointLight")
+    light.Name = "HitboxLight"
+    light.Brightness = 0.3
+    light.Range = getgenv().HBE.Size * 2
+    light.Color = getgenv().HBE.Color
+    light.Parent = hitboxPart
+    
+    return hitboxPart
+end
+
+local function applyHitbox(character)
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- Mevcut hitbox part'ını kontrol et
+    local existingHitbox = character:FindFirstChild("HitboxPart")
+    if existingHitbox then
+        -- Hitbox'ı güncelle
+        existingHitbox.Size = Vector3.new(getgenv().HBE.Size, getgenv().HBE.Size, getgenv().HBE.Size)
+        existingHitbox.Color = getgenv().HBE.Color
+        existingHitbox.Transparency = getgenv().HBE.Transparency
+        
+        local light = existingHitbox:FindFirstChild("HitboxLight")
+        if light then
+            light.Range = getgenv().HBE.Size * 2
+            light.Color = getgenv().HBE.Color
+        end
+    else
+        -- Yeni hitbox part'ı oluştur
+        createHitboxPart(character)
+    end
+    
+    -- HumanoidRootPart'ın boyutunu da güncelle (hasar için)
+    humanoidRootPart.Size = Vector3.new(getgenv().HBE.Size, getgenv().HBE.Size, getgenv().HBE.Size)
+    humanoidRootPart.Transparency = 1
+    humanoidRootPart.CanCollide = false
+end
+
+local function resetHitbox(character)
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        humanoidRootPart.Size = Vector3.new(2, 2, 1)
+        humanoidRootPart.Transparency = 1
+    end
+    
+    -- Hitbox part'ını kaldır
+    local hitboxPart = character:FindFirstChild("HitboxPart")
+    if hitboxPart then
+        hitboxPart:Destroy()
+    end
+end
+
+local function managePlayerHitboxes(player)
+    if player == LocalPlayer then return end
+    
+    if hitboxConnections[player] then
+        hitboxConnections[player]:Disconnect()
+    end
+    
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        local character = getCharacter(player)
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            if getgenv().HBE.Enabled then
+                applyHitbox(character)
+            else
+                resetHitbox(character)
+            end
+        end
+    end)
+    
+    hitboxConnections[player] = connection
+end
+
+function applyHitboxesToAllPlayers()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = getCharacter(player)
+            if character then
+                if getgenv().HBE.Enabled then
+                    applyHitbox(character)
+                else
+                    resetHitbox(character)
+                end
+            end
+        end
+    end
+end
+
+-- Sürekli hitbox güncelleme
+local continuousUpdateConnection
+continuousUpdateConnection = RunService.Heartbeat:Connect(function()
+    if getgenv().HBE.Enabled then
+        applyHitboxesToAllPlayers()
+    end
+end)
+
+-- Metatable değişikliği (hasar için)
+pcall(function()
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    local old = mt.__index
+    mt.__index = function(Self, Key)
+        if tostring(Self) == "HumanoidRootPart" and tostring(Key) == "Size" and getgenv().HBE.Enabled then
+            return Vector3.new(getgenv().HBE.Size, getgenv().HBE.Size, getgenv().HBE.Size)
+        end
+        return old(Self, Key)
+    end
+    setreadonly(mt, true)
+end)
+
+-- Oyuncu yönetimi
+for _, player in ipairs(Players:GetPlayers()) do
+    managePlayerHitboxes(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    managePlayerHitboxes(player)
+    
+    if getgenv().HBE.ShowKiller then
+        wait(2)
+        local isKiller = checkPlayerForKnife(player)
+        createESP(player, isKiller)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if hitboxConnections[player] then
+        hitboxConnections[player]:Disconnect()
+        hitboxConnections[player] = nil
+    end
+    
+    if espConnections[player] then
+        espConnections[player]:Disconnect()
+        espConnections[player] = nil
+    end
+    
+    removeESP(player)
+    
+    -- Oyuncu çıkınca hitbox'ı temizle
+    local character = getCharacter(player)
+    if character then
+        resetHitbox(character)
+    end
+end)
+
+-- Başlangıçta hitbox'ları uygula
+applyHitboxesToAllPlayers()
+
+print("Fallend Geliştirilmiş Hitbox Genişletme Sistemi Yüklendi!")
+print("Insert tuşuyla GUI'yi açıp kapatabilirsiniz.")
+print("N tuşuyla hitbox'ları etkinleştirip devre dışı bırakabilirsiniz.")
+print("Hitbox boyutu: 5-2000 arası ayarlanabilir")
+print("Hitbox içindeyken hasar alınabilir")
+print("Murder2 sekmesinde Coin Topla ve Katil ESP özellikleri bulunur")
