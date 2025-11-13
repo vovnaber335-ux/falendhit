@@ -1,18 +1,3 @@
---[[
-    Geliştirilmiş Hitbox Genişletme Scripti - Murder2 Sekmesi Eklendi
-    Fallend tarafından geliştirilmiştir
-    GUI özellikleri:
-    - Insert tuşuyla GUI görünür/gizlenir
-    - N tuşuyla hitbox'ları açıp kapatma
-    - Hitbox boyutunu ayarlama slider'ı (5-2000 arası)
-    - Hitbox rengini seçme
-    - Hitbox opaklık ayarı
-    - Murder2 sekmesi eklendi
-    - Gelişmiş ESP sistemi
-    - Sürekli hitbox güncelleme
-    - Hitbox içinde hasar alma özelliği
-    - GUI tüm ekranların önünde ve mouse etkileşimi sorunsuz
-]]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -21,7 +6,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- Ayarlar
+
 getgenv().HBE = {
     Enabled = true,
     Size = 15,
@@ -31,17 +16,17 @@ getgenv().HBE = {
     ShowKiller = false
 }
 
--- ESP için değişkenler
+
 local espConnections = {}
 local killerESP = {}
 local espFolders = {}
 
--- Hitbox için değişkenler
+
 local hitboxConnections = {}
 local hitboxParts = {}
 local lastHitboxUpdate = 0
 
--- GUI Oluşturma
+
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "HitboxGUI"
 screenGui.DisplayOrder = 10
@@ -64,7 +49,7 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = mainFrame
 
--- Title Bar
+
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 40)
 titleBar.Position = UDim2.new(0, 0, 0, 0)
@@ -86,7 +71,7 @@ title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = titleBar
 
--- Kapat Butonu (X)
+
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 30, 0, 30)
 closeButton.Position = UDim2.new(1, -35, 0.5, -15)
@@ -101,7 +86,7 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 4)
 closeCorner.Parent = closeButton
 
--- Sekme Butonları
+
 local tabButtonsFrame = Instance.new("Frame")
 tabButtonsFrame.Size = UDim2.new(1, 0, 0, 35)
 tabButtonsFrame.Position = UDim2.new(0, 0, 0, 40)
@@ -128,14 +113,14 @@ murderTab.TextSize = 14
 murderTab.Font = Enum.Font.GothamBold
 murderTab.Parent = tabButtonsFrame
 
--- İçerik Alanları
+
 local contentFrame = Instance.new("Frame")
 contentFrame.Size = UDim2.new(1, 0, 1, -75)
 contentFrame.Position = UDim2.new(0, 0, 0, 75)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Hitbox Sekmesi İçeriği
+
 local hitboxContent = Instance.new("Frame")
 hitboxContent.Size = UDim2.new(1, 0, 1, 0)
 hitboxContent.Position = UDim2.new(0, 0, 0, 0)
@@ -143,7 +128,7 @@ hitboxContent.BackgroundTransparency = 1
 hitboxContent.Visible = true
 hitboxContent.Parent = contentFrame
 
--- Murder2 Sekmesi İçeriği
+
 local murderContent = Instance.new("Frame")
 murderContent.Size = UDim2.new(1, 0, 1, 0)
 murderContent.Position = UDim2.new(0, 0, 0, 0)
@@ -151,7 +136,7 @@ murderContent.BackgroundTransparency = 1
 murderContent.Visible = false
 murderContent.Parent = contentFrame
 
--- HITBOX SEKMESİ İÇERİĞİ --
+
 local checkboxFrame = Instance.new("Frame")
 checkboxFrame.Size = UDim2.new(1, -20, 0, 30)
 checkboxFrame.Position = UDim2.new(0, 10, 0, 10)
@@ -181,7 +166,7 @@ checkboxLabel.TextXAlignment = Enum.TextXAlignment.Left
 checkboxLabel.Font = Enum.Font.Gotham
 checkboxLabel.Parent = checkboxFrame
 
--- Boyut Ayarı (5-2000)
+
 local sizeFrame = Instance.new("Frame")
 sizeFrame.Size = UDim2.new(1, -20, 0, 60)
 sizeFrame.Position = UDim2.new(0, 10, 0, 50)
@@ -395,7 +380,7 @@ local killerDesc = Instance.new("TextLabel")
 killerDesc.Size = UDim2.new(1, -20, 0, 60)
 killerDesc.Position = UDim2.new(0, 10, 0, 150)
 killerDesc.BackgroundTransparency = 1
-killerDesc.Text = "Katil kim aq: İşaretlendiğinde envanterinde bıçak olan oyuncular ESP ile gösterilir - Fallend"
+killerDesc.Text = "Katil kim aq: İşaretlendiğinde oyuncular ESP ile gösterilir - Fallend"
 killerDesc.TextColor3 = Color3.fromRGB(200, 200, 200)
 killerDesc.TextSize = 12
 killerDesc.TextXAlignment = Enum.TextXAlignment.Left
